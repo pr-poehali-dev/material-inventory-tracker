@@ -7,6 +7,10 @@ import { Progress } from '@/components/ui/progress';
 import { Input } from '@/components/ui/input';
 import { Tabs, TabsContent, TabsList, TabsTrigger } from '@/components/ui/tabs';
 import { ScrollArea } from '@/components/ui/scroll-area';
+import { Dialog, DialogContent, DialogDescription, DialogFooter, DialogHeader, DialogTitle } from '@/components/ui/dialog';
+import { Label } from '@/components/ui/label';
+import { Select, SelectContent, SelectItem, SelectTrigger, SelectValue } from '@/components/ui/select';
+import { useToast } from '@/hooks/use-toast';
 
 type ProjectStatus = 'planning' | 'active' | 'completed' | 'closed';
 type MaterialCategory = 'metal' | 'wood' | 'plastic' | 'electronics' | 'consumables';
@@ -45,13 +49,24 @@ interface WarehouseOperation {
 const Index = () => {
   const [activeSection, setActiveSection] = useState<'dashboard' | 'projects' | 'materials' | 'warehouse' | 'reports' | 'settings'>('dashboard');
   const [selectedCategory, setSelectedCategory] = useState<MaterialCategory | 'all'>('all');
+  const [isCreateProjectOpen, setIsCreateProjectOpen] = useState(false);
+  const [projectsList, setProjectsList] = useState<Project[]>([]);
+  const [newProject, setNewProject] = useState({
+    name: '',
+    status: 'planning' as ProjectStatus,
+    deadline: '',
+    responsible: ''
+  });
+  const { toast } = useToast();
 
-  const projects: Project[] = [
+  useState<Project[]>([
     { id: '1', name: 'Производство серии А-100', number: 'PRJ-2026-001', status: 'active', deadline: '2026-02-15', progress: 65, responsible: 'Иванов И.И.' },
     { id: '2', name: 'Модернизация линии №3', number: 'PRJ-2026-002', status: 'planning', deadline: '2026-03-01', progress: 25, responsible: 'Петрова А.С.' },
     { id: '3', name: 'Опытная партия Б-50', number: 'PRJ-2026-003', status: 'active', deadline: '2026-02-20', progress: 80, responsible: 'Сидоров П.В.' },
     { id: '4', name: 'Ремонт оборудования цех №2', number: 'PRJ-2026-004', status: 'completed', deadline: '2026-01-25', progress: 100, responsible: 'Кузнецова М.А.' },
-  ];
+  ]);
+
+  const projects = projectsList;
 
   const materials: Material[] = [
     { id: '1', name: 'Сталь листовая 3мм', article: 'STL-003', category: 'metal', unit: 'м²', totalStock: 450, reserved: 120, minStock: 100 },
@@ -152,6 +167,37 @@ const Index = () => {
   });
 
   const activeProjects = projects.filter(p => p.status === 'active').length;
+
+  const handleCreateProject = () => {
+    if (!newProject.name.trim() || !newProject.deadline || !newProject.responsible.trim()) {
+      toast({
+        title: 'Ошибка',
+        description: 'Заполните все обязательные поля',
+        variant: 'destructive'
+      });
+      return;
+    }
+
+    const projectNumber = `PRJ-2026-${String(projects.length + 1).padStart(3, '0')}`;
+    const newProjectData: Project = {
+      id: String(Date.now()),
+      name: newProject.name,
+      number: projectNumber,
+      status: newProject.status,
+      deadline: newProject.deadline,
+      progress: 0,
+      responsible: newProject.responsible
+    };
+
+    setProjectsList([...projects, newProjectData]);
+    setIsCreateProjectOpen(false);
+    setNewProject({ name: '', status: 'planning', deadline: '', responsible: '' });
+    
+    toast({
+      title: 'Проект создан',
+      description: `${projectNumber}: ${newProject.name}`,
+    });
+  };
 
   return (
     <div className="min-h-screen bg-gray-50">
@@ -367,7 +413,7 @@ const Index = () => {
                 <h2 className="text-3xl font-bold text-gray-900">Проекты</h2>
                 <p className="text-gray-500 mt-1">Управление производственными проектами</p>
               </div>
-              <Button className="bg-blue-600 hover:bg-blue-700">
+              <Button className="bg-blue-600 hover:bg-blue-700" onClick={() => setIsCreateProjectOpen(true)}>
                 <Icon name="Plus" size={20} className="mr-2" />
                 Создать проект
               </Button>
@@ -778,6 +824,80 @@ const Index = () => {
           </div>
         )}
       </main>
+
+      <Dialog open={isCreateProjectOpen} onOpenChange={setIsCreateProjectOpen}>
+        <DialogContent className="sm:max-w-[500px]">
+          <DialogHeader>
+            <DialogTitle className="flex items-center gap-2">
+              <Icon name="Briefcase" size={24} className="text-blue-600" />
+              Создать новый проект
+            </DialogTitle>
+            <DialogDescription>
+              Заполните информацию о новом производственном проекте
+            </DialogDescription>
+          </DialogHeader>
+          
+          <div className="space-y-4 py-4">
+            <div className="space-y-2">
+              <Label htmlFor="project-name">Название проекта *</Label>
+              <Input
+                id="project-name"
+                placeholder="Например: Производство серии А-200"
+                value={newProject.name}
+                onChange={(e) => setNewProject({ ...newProject, name: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="project-status">Статус</Label>
+              <Select
+                value={newProject.status}
+                onValueChange={(value: ProjectStatus) => setNewProject({ ...newProject, status: value })}
+              >
+                <SelectTrigger id="project-status">
+                  <SelectValue />
+                </SelectTrigger>
+                <SelectContent>
+                  <SelectItem value="planning">Планирование</SelectItem>
+                  <SelectItem value="active">Активен</SelectItem>
+                  <SelectItem value="completed">Завершён</SelectItem>
+                  <SelectItem value="closed">Закрыт</SelectItem>
+                </SelectContent>
+              </Select>
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="project-deadline">Дедлайн *</Label>
+              <Input
+                id="project-deadline"
+                type="date"
+                value={newProject.deadline}
+                onChange={(e) => setNewProject({ ...newProject, deadline: e.target.value })}
+              />
+            </div>
+
+            <div className="space-y-2">
+              <Label htmlFor="project-responsible">Ответственный *</Label>
+              <Input
+                id="project-responsible"
+                placeholder="ФИО ответственного"
+                value={newProject.responsible}
+                onChange={(e) => setNewProject({ ...newProject, responsible: e.target.value })}
+              />
+            </div>
+          </div>
+
+          <DialogFooter>
+            <Button variant="outline" onClick={() => setIsCreateProjectOpen(false)}>
+              Отмена
+            </Button>
+            <Button className="bg-blue-600 hover:bg-blue-700" onClick={handleCreateProject}>
+              <Icon name="Plus" size={16} className="mr-2" />
+              Создать проект
+            </Button>
+          </DialogFooter>
+        </DialogContent>
+      </Dialog>
     </div>
   );
 };
